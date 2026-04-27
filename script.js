@@ -139,7 +139,15 @@ function handleMediumCellChange(id, sel) {
       if (inp) inp.focus();
     }
   } else {
+    const prevUtm2 = buildUTM(row);
+    const prevShortUrl2 = row.shortUrl;
     row.medium = sel.value;
+    const newUtm2 = buildUTM(row);
+    if (prevUtm2 !== newUtm2 && prevShortUrl2) {
+      _archiveBitlyLink(prevShortUrl2);
+      row.shortUrl = null;
+      row.shortUrlFor = null;
+    }
     maybeStampDate(row);
     const tr = document.querySelector(`tr[data-id="${id}"]`);
     if (tr) {
@@ -167,6 +175,10 @@ function handleMediumCellChange(id, sel) {
     if (row.firebaseId) {
       const update = { medium: row.medium };
       if (row.createdAt) update.createdAt = row.createdAt;
+      if (prevUtm2 !== newUtm2 && prevShortUrl2) {
+        update.shortUrl = firebase.firestore.FieldValue.delete();
+        update.shortUrlFor = firebase.firestore.FieldValue.delete();
+      }
       db.collection('utm_rows').doc(row.firebaseId).update(update).catch(console.error);
     }
     updateStats();
@@ -188,14 +200,16 @@ function handleSidebarDeptChange(sel) {
 function shortUrlCellHTML(row) {
   const utm = buildUTM(row);
   if (!utm) return '<div class="short-cell-empty">—</div>';
-  if (!BITLY_TOKEN) return '<div class="short-cell-empty">—</div>';
   if (row.shortUrl && row.shortUrlFor === utm) {
     return `<div class="short-cell">
-      <span class="short-url-text">${escHtml(row.shortUrl)}</span>
+      <a class="short-url-text" href="${escHtml(row.shortUrl)}" target="_blank" rel="noopener">${escHtml(row.shortUrl)}</a>
       <button class="copy-btn" onclick="copyUTM(this,'${escAttr(row.shortUrl)}')">복사</button>
     </div>`;
   }
-  return '<div class="utm-short-pending">생성 중…</div>';
+  if (_shorteningQueue.has(row.firebaseId)) {
+    return '<div class="utm-short-pending">생성 중…</div>';
+  }
+  return `<button class="short-gen-btn" onclick="generateShortUrl(${row.id})">생성</button>`;
 }
 
 // ── UTM 결과 셀 HTML 헬퍼 ────────────────────────────────────
@@ -285,7 +299,17 @@ function escAttr(str) {
 function updateCell(id, field, value) {
   const row = rows.find(r => r.id === id);
   if (!row) return;
+
+  const prevUtm = buildUTM(row);
+  const prevShortUrl = row.shortUrl;
   row[field] = value;
+  const newUtm = buildUTM(row);
+  const clearShortUrl = prevUtm !== newUtm && !!prevShortUrl;
+  if (clearShortUrl) {
+    _archiveBitlyLink(prevShortUrl);
+    row.shortUrl = null;
+    row.shortUrlFor = null;
+  }
 
   const wasComplete = !!row.createdAt;
   maybeStampDate(row);
@@ -324,6 +348,10 @@ function updateCell(id, field, value) {
     _pendingUpdates[id] = setTimeout(() => {
       const update = { [field]: value };
       if (row.createdAt) update.createdAt = row.createdAt;
+      if (clearShortUrl) {
+        update.shortUrl = firebase.firestore.FieldValue.delete();
+        update.shortUrlFor = firebase.firestore.FieldValue.delete();
+      }
       db.collection('utm_rows').doc(row.firebaseId).update(update).catch(console.error);
     }, 800);
   }
@@ -376,6 +404,7 @@ function deleteRow(id) {
   if (!confirm('이 행을 삭제할까요?\n삭제된 항목은 휴지통에서 30일간 보관됩니다.')) return;
   const row = rows.find(r => r.id === id);
   if (!row || !row.firebaseId) return;
+  if (row.shortUrl) _archiveBitlyLink(row.shortUrl);
   _moveToTrash(row).then(() => {
     db.collection('utm_rows').doc(row.firebaseId).delete().catch(console.error);
   });
@@ -413,6 +442,7 @@ function clearSelected() {
   const selected = rows.filter(r => r.selected);
   if (selected.length === 0) { showToast('선택된 행이 없습니다'); return; }
   if (!confirm(`선택한 ${selected.length}개 행을 삭제할까요?\n삭제된 항목은 휴지통에서 30일간 보관됩니다.`)) return;
+  selected.forEach(row => { if (row.shortUrl) _archiveBitlyLink(row.shortUrl); });
   Promise.all(selected.map(row => _moveToTrash(row))).then(() => {
     const batch = db.batch();
     selected.forEach(row => {
@@ -575,15 +605,6 @@ db.collection('utm_rows').onSnapshot(snapshot => {
 
   updateFilterOptions();
   if (!isEditing) renderTable();
-
-  if (BITLY_TOKEN) {
-    rows.forEach(row => {
-      const utm = buildUTM(row);
-      if (utm && row.firebaseId && (!row.shortUrl || row.shortUrlFor !== utm)) {
-        shortenUrl(row);
-      }
-    });
-  }
 }, error => {
   console.error('Firestore 오류:', error);
 });
@@ -679,10 +700,17 @@ function permanentDeleteTrashItem(trashId) {
 }
 
 // ── Bitly ────────────────────────────────────────────────────
-async function shortenUrl(row) {
+async function generateShortUrl(id) {
+  const row = rows.find(r => r.id === id);
+  if (!row || !row.firebaseId) return;
   const utm = buildUTM(row);
-  if (!utm || !row.firebaseId || !BITLY_TOKEN) return;
+  if (!utm) return;
   if (_shorteningQueue.has(row.firebaseId)) return;
+
+  const tr = document.querySelector(`tr[data-id="${id}"]`);
+  const shortTd = tr && tr.querySelector('.short-td');
+  if (shortTd) shortTd.innerHTML = '<div class="utm-short-pending">생성 중…</div>';
+
   _shorteningQueue.add(row.firebaseId);
   try {
     const res = await fetch('https://api-ssl.bitly.com/v4/shorten', {
@@ -693,32 +721,45 @@ async function shortenUrl(row) {
       },
       body: JSON.stringify({ long_url: utm })
     });
-    if (res.status === 401) { showToast('Bitly 토큰이 유효하지 않습니다'); return; }
+    if (!res.ok) {
+      showToast(res.status === 401 ? 'Bitly 토큰이 유효하지 않습니다' : `Bitly 오류: ${res.status}`);
+      const tr2 = document.querySelector(`tr[data-id="${id}"]`);
+      const std2 = tr2 && tr2.querySelector('.short-td');
+      if (std2) std2.innerHTML = shortUrlCellHTML(row);
+      return;
+    }
     const data = await res.json();
     if (data.link) {
-      db.collection('utm_rows').doc(row.firebaseId).update({
+      row.shortUrl = data.link;
+      row.shortUrlFor = utm;
+      await db.collection('utm_rows').doc(row.firebaseId).update({
         shortUrl: data.link,
         shortUrlFor: utm
-      }).catch(console.error);
+      });
+      const tr2 = document.querySelector(`tr[data-id="${id}"]`);
+      const std2 = tr2 && tr2.querySelector('.short-td');
+      if (std2) std2.innerHTML = shortUrlCellHTML(row);
     }
   } catch (e) {
     console.error('Bitly 오류:', e);
+    showToast('단축 URL 생성에 실패했습니다');
+    const tr2 = document.querySelector(`tr[data-id="${id}"]`);
+    const std2 = tr2 && tr2.querySelector('.short-td');
+    if (std2) std2.innerHTML = shortUrlCellHTML(row);
   } finally {
     _shorteningQueue.delete(row.firebaseId);
   }
 }
 
-
-function updateBitlyStatus() {
-  const btn = document.getElementById('bitly-btn');
-  if (!btn) return;
-  if (BITLY_TOKEN) {
-    btn.classList.add('bitly-connected');
-    btn.title = 'Bitly 연결됨 (클릭하여 변경)';
-  } else {
-    btn.classList.remove('bitly-connected');
-    btn.title = 'Bitly API 토큰 설정';
+async function _archiveBitlyLink(shortUrl) {
+  if (!shortUrl || !BITLY_TOKEN) return;
+  const bitlinkId = shortUrl.replace(/^https?:\/\//, '');
+  try {
+    await fetch(`https://api-ssl.bitly.com/v4/bitlinks/${bitlinkId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${BITLY_TOKEN}` }
+    });
+  } catch (e) {
+    console.error('Bitly 삭제 오류:', e);
   }
 }
-
-updateBitlyStatus();
