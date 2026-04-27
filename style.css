@@ -364,6 +364,7 @@ tbody td:first-child {
   font-size: 11px;
   color: var(--accent3);
   flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -386,17 +387,20 @@ tbody td:first-child {
 .copy-btn.copied { border-color: var(--accent); color: var(--accent); }
 
 .delete-row-btn {
-  padding: 3px 6px;
+  flex-shrink: 0;
+  padding: 3px 8px;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
   color: var(--muted);
   cursor: pointer;
-  font-size: 14px;
-  transition: color 0.15s;
-  display: none;
+  transition: all 0.15s;
+  opacity: 0;
 }
-tr:hover .delete-row-btn { display: block; }
-.delete-row-btn:hover { color: var(--accent2); }
+tr:hover .delete-row-btn { opacity: 1; }
+.delete-row-btn:hover { border-color: rgba(255,127,127,0.4); color: var(--accent2); background: rgba(255,127,127,0.08); }
 
 /* STATUS DOTS */
 .status-dot {

@@ -148,6 +148,7 @@ function handleMediumCellChange(id, sel) {
           <div class="status-dot ${dotClass}"></div>
           <div class="utm-url ${utm ? '' : 'empty'}">${utm ? escHtml(utm) : '— 필수 항목을 입력하세요'}</div>
           ${utm ? `<button class="copy-btn" onclick="copyUTM(this, '${escAttr(utm)}')">복사</button>` : ''}
+          <button class="delete-row-btn" onclick="deleteRow(${row.id})">삭제</button>
         `;
       }
       if (!row.createdAt) {
@@ -228,9 +229,9 @@ function renderTable() {
           <div class="status-dot ${dotClass}"></div>
           <div class="utm-url ${utm ? '' : 'empty'}">${utm ? escHtml(utm) : '— 필수 항목을 입력하세요'}</div>
           ${utm ? `<button class="copy-btn" onclick="copyUTM(this, '${escAttr(utm)}')">복사</button>` : ''}
+          <button class="delete-row-btn" onclick="deleteRow(${row.id})">삭제</button>
         </div>
       </td>
-      <td><button class="delete-row-btn" onclick="deleteRow(${row.id})" title="삭제">✕</button></td>
     </tr>`;
   }).join('');
 
@@ -330,6 +331,7 @@ function addMultipleRows() {
 }
 
 function deleteRow(id) {
+  if (!confirm('이 행을 삭제할까요?')) return;
   const row = rows.find(r => r.id === id);
   if (!row || !row.firebaseId) return;
   db.collection('utm_rows').doc(row.firebaseId).delete().catch(console.error);
