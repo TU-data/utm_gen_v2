@@ -15,6 +15,8 @@ let rows = [];
 let nextId = 1;
 let _pendingUpdates = {};
 let filters = { url: '', source: '', medium: '' };
+let BITLY_TOKEN = localStorage.getItem('bitly_token') || '';
+const _shorteningQueue = new Set();
 
 const DEPT_OPTIONS = ['바이럴팀', '데이터팀', '컨텐츠팀'];
 
@@ -145,12 +147,7 @@ function handleMediumCellChange(id, sel) {
       const dotClass = ok ? 'dot-ok' : (row.url || row.source || row.medium || row.campaign ? 'dot-partial' : 'dot-empty');
       const resultCell = tr.querySelector('.utm-result');
       if (resultCell) {
-        resultCell.innerHTML = `
-          <div class="status-dot ${dotClass}"></div>
-          <div class="utm-url ${utm ? '' : 'empty'}">${utm ? escHtml(utm) : '— 필수 항목을 입력하세요'}</div>
-          ${utm ? `<button class="copy-btn" onclick="copyUTM(this, '${escAttr(utm)}')">복사</button>` : ''}
-          <button class="delete-row-btn" onclick="deleteRow(${row.id})">삭제</button>
-        `;
+        resultCell.innerHTML = utmResultCellHTML(row);
       }
       if (!row.createdAt) {
         const dateBadge = tr.querySelector('.date-badge');
@@ -175,6 +172,33 @@ function handleSidebarDeptChange(sel) {
     customInput.style.display = 'none';
     customInput.value = '';
   }
+}
+
+// ── UTM 결과 셀 HTML 헬퍼 ────────────────────────────────────
+function utmResultCellHTML(row) {
+  const utm = buildUTM(row);
+  const ok = isComplete(row);
+  const dotClass = ok ? 'dot-ok' : (row.url || row.source || row.medium || row.campaign ? 'dot-partial' : 'dot-empty');
+
+  let shortHtml = '';
+  if (utm && BITLY_TOKEN) {
+    if (row.shortUrl && row.shortUrlFor === utm) {
+      shortHtml = `<div class="utm-short-row">
+        <span class="short-icon">🔗</span>
+        <span class="short-url-text">${escHtml(row.shortUrl)}</span>
+        <button class="copy-btn" onclick="copyUTM(this,'${escAttr(row.shortUrl)}')">복사</button>
+      </div>`;
+    } else {
+      shortHtml = `<div class="utm-short-pending">단축 URL 생성 중...</div>`;
+    }
+  }
+
+  return `<div class="utm-result-main">
+      <div class="status-dot ${dotClass}"></div>
+      <div class="utm-url ${utm ? '' : 'empty'}">${utm ? escHtml(utm) : '— 필수 항목을 입력하세요'}</div>
+      ${utm ? `<button class="copy-btn" onclick="copyUTM(this,'${escAttr(utm)}')">복사</button>` : ''}
+      <button class="delete-row-btn" onclick="deleteRow(${row.id})">삭제</button>
+    </div>${shortHtml}`;
 }
 
 // ── Render ───────────────────────────────────────────────────
@@ -232,14 +256,7 @@ function renderTable() {
         </div>
       </td>
       <td class="dept-td">${deptCellHTML(row)}</td>
-      <td>
-        <div class="utm-result">
-          <div class="status-dot ${dotClass}"></div>
-          <div class="utm-url ${utm ? '' : 'empty'}">${utm ? escHtml(utm) : '— 필수 항목을 입력하세요'}</div>
-          ${utm ? `<button class="copy-btn" onclick="copyUTM(this, '${escAttr(utm)}')">복사</button>` : ''}
-          <button class="delete-row-btn" onclick="deleteRow(${row.id})">삭제</button>
-        </div>
-      </td>
+      <td><div class="utm-result">${utmResultCellHTML(row)}</div></td>
     </tr>`;
   }).join('');
 
@@ -268,11 +285,7 @@ function updateCell(id, field, value) {
     const dotClass = ok ? 'dot-ok' : (row.url || row.source || row.medium || row.campaign ? 'dot-partial' : 'dot-empty');
     const resultCell = tr.querySelector('.utm-result');
     if (resultCell) {
-      resultCell.innerHTML = `
-        <div class="status-dot ${dotClass}"></div>
-        <div class="utm-url ${utm ? '' : 'empty'}">${utm ? escHtml(utm) : '— 필수 항목을 입력하세요'}</div>
-        ${utm ? `<button class="copy-btn" onclick="copyUTM(this, '${escAttr(utm)}')">복사</button>` : ''}
-      `;
+      resultCell.innerHTML = utmResultCellHTML(row);
     }
     if (!wasComplete && row.createdAt) {
       const dateBadge = tr.querySelector('.date-badge');
@@ -533,12 +546,23 @@ db.collection('utm_rows').onSnapshot(snapshot => {
       dept: data.dept || '',
       createdAt: data.createdAt || null,
       selected: existing ? existing.selected : false,
+      shortUrl: data.shortUrl || null,
+      shortUrlFor: data.shortUrlFor || null,
       _order: data._order || 0
     };
   }).sort((a, b) => a._order - b._order);
 
   updateFilterOptions();
   if (!isEditing) renderTable();
+
+  if (BITLY_TOKEN) {
+    rows.forEach(row => {
+      const utm = buildUTM(row);
+      if (utm && row.firebaseId && (!row.shortUrl || row.shortUrlFor !== utm)) {
+        shortenUrl(row);
+      }
+    });
+  }
 }, error => {
   console.error('Firestore 오류:', error);
 });
@@ -632,3 +656,66 @@ function permanentDeleteTrashItem(trashId) {
     showToast('영구 삭제되었습니다');
   }).catch(console.error);
 }
+
+// ── Bitly ────────────────────────────────────────────────────
+async function shortenUrl(row) {
+  const utm = buildUTM(row);
+  if (!utm || !row.firebaseId || !BITLY_TOKEN) return;
+  if (_shorteningQueue.has(row.firebaseId)) return;
+  _shorteningQueue.add(row.firebaseId);
+  try {
+    const res = await fetch('https://api-ssl.bitly.com/v4/shorten', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${BITLY_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ long_url: utm })
+    });
+    if (res.status === 401) { showToast('Bitly 토큰이 유효하지 않습니다'); return; }
+    const data = await res.json();
+    if (data.link) {
+      db.collection('utm_rows').doc(row.firebaseId).update({
+        shortUrl: data.link,
+        shortUrlFor: utm
+      }).catch(console.error);
+    }
+  } catch (e) {
+    console.error('Bitly 오류:', e);
+  } finally {
+    _shorteningQueue.delete(row.firebaseId);
+  }
+}
+
+function setupBitly() {
+  const token = prompt('Bitly Access Token을 입력하세요\n(https://app.bitly.com → Settings → API):', BITLY_TOKEN);
+  if (token === null) return;
+  BITLY_TOKEN = token.trim();
+  localStorage.setItem('bitly_token', BITLY_TOKEN);
+  updateBitlyStatus();
+  if (BITLY_TOKEN) {
+    rows.forEach(row => {
+      const utm = buildUTM(row);
+      if (utm && row.firebaseId && (!row.shortUrl || row.shortUrlFor !== utm)) {
+        shortenUrl(row);
+      }
+    });
+    showToast('Bitly 토큰이 저장되었습니다');
+  } else {
+    showToast('Bitly 토큰이 제거되었습니다');
+  }
+}
+
+function updateBitlyStatus() {
+  const btn = document.getElementById('bitly-btn');
+  if (!btn) return;
+  if (BITLY_TOKEN) {
+    btn.classList.add('bitly-connected');
+    btn.title = 'Bitly 연결됨 (클릭하여 변경)';
+  } else {
+    btn.classList.remove('bitly-connected');
+    btn.title = 'Bitly API 토큰 설정';
+  }
+}
+
+updateBitlyStatus();

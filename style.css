@@ -354,11 +354,41 @@ tbody td:first-child {
 /* UTM RESULT CELL */
 .utm-result {
   display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4px 12px;
+  min-height: 36px;
+  gap: 2px;
+}
+.utm-result-main {
+  display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 12px;
-  height: 36px;
+  width: 100%;
 }
+.utm-short-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 14px;
+}
+.short-icon { font-size: 10px; flex-shrink: 0; }
+.short-url-text {
+  font-size: 10px;
+  color: var(--accent);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.utm-short-pending {
+  font-size: 10px;
+  color: var(--muted);
+  padding-left: 14px;
+  animation: blink 1.4s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:.4} 50%{opacity:1} }
 
 .utm-url {
   font-size: 11px;
@@ -697,3 +727,16 @@ tr:hover .delete-row-btn { opacity: 1; }
   white-space: nowrap;
 }
 .filter-reset:hover { background: rgba(255,127,127,0.08); }
+
+/* BITLY BUTTON */
+.bitly-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.bitly-btn.bitly-connected {
+  border-color: rgba(127,255,178,0.35);
+  color: var(--accent);
+}
+.bitly-btn.bitly-connected:hover { background: rgba(127,255,178,0.08); }
