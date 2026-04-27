@@ -282,6 +282,8 @@ thead th.col-date { width: 110px; }
 thead th.col-dept { width: 150px; }
 thead th.col-result { min-width: 260px; }
 thead th.col-short { width: 170px; }
+thead th.col-copy { width: 60px; text-align: center; }
+thead th.col-del { width: 60px; text-align: center; }
 
 /* ROWS */
 tbody tr {
@@ -428,9 +430,7 @@ tbody td:first-child {
   color: var(--muted);
   cursor: pointer;
   transition: all 0.15s;
-  opacity: 0;
 }
-tr:hover .delete-row-btn { opacity: 1; }
 .delete-row-btn:hover { border-color: rgba(255,127,127,0.4); color: var(--accent2); background: rgba(255,127,127,0.08); }
 
 /* STATUS DOTS */
@@ -728,6 +728,13 @@ tr:hover .delete-row-btn { opacity: 1; }
   white-space: nowrap;
 }
 .filter-reset:hover { background: rgba(255,127,127,0.08); }
+
+/* COPY / DELETE COLUMNS */
+.copy-td, .del-td {
+  text-align: center;
+  vertical-align: middle;
+  padding: 0 4px;
+}
 
 /* SHORT URL CELL */
 .short-td {

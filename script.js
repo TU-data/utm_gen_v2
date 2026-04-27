@@ -154,6 +154,11 @@ function handleMediumCellChange(id, sel) {
       if (shortTd) {
         shortTd.innerHTML = shortUrlCellHTML(row);
       }
+      const copyTd = tr.querySelector('.copy-td');
+      if (copyTd) {
+        const utm2 = buildUTM(row);
+        copyTd.innerHTML = utm2 ? `<button class="copy-btn" onclick="copyUTM(this,'${escAttr(utm2)}')">복사</button>` : '';
+      }
       if (!row.createdAt) {
         const dateBadge = tr.querySelector('.date-badge');
         if (dateBadge && row.createdAt) { dateBadge.textContent = row.createdAt; dateBadge.classList.add('set'); }
@@ -202,8 +207,6 @@ function utmResultCellHTML(row) {
   return `<div class="utm-result-main">
       <div class="status-dot ${dotClass}"></div>
       <div class="utm-url ${utm ? '' : 'empty'}">${utm ? escHtml(utm) : '— 필수 항목을 입력하세요'}</div>
-      ${utm ? `<button class="copy-btn" onclick="copyUTM(this,'${escAttr(utm)}')">복사</button>` : ''}
-      <button class="delete-row-btn" onclick="deleteRow(${row.id})">삭제</button>
     </div>`;
 }
 
@@ -264,6 +267,8 @@ function renderTable() {
       <td class="dept-td">${deptCellHTML(row)}</td>
       <td><div class="utm-result">${utmResultCellHTML(row)}</div></td>
       <td class="short-td">${shortUrlCellHTML(row)}</td>
+      <td class="copy-td">${utm ? `<button class="copy-btn" onclick="copyUTM(this,'${escAttr(utm)}')">복사</button>` : ''}</td>
+      <td class="del-td"><button class="delete-row-btn" onclick="deleteRow(${row.id})">삭제</button></td>
     </tr>`;
   }).join('');
 
@@ -297,6 +302,11 @@ function updateCell(id, field, value) {
     const shortTd = tr.querySelector('.short-td');
     if (shortTd) {
       shortTd.innerHTML = shortUrlCellHTML(row);
+    }
+    const copyTd = tr.querySelector('.copy-td');
+    if (copyTd) {
+      const utm2 = buildUTM(row);
+      copyTd.innerHTML = utm2 ? `<button class="copy-btn" onclick="copyUTM(this,'${escAttr(utm2)}')">복사</button>` : '';
     }
     if (!wasComplete && row.createdAt) {
       const dateBadge = tr.querySelector('.date-badge');
