@@ -280,9 +280,8 @@ thead th.col-ter { width: 120px; }
 thead th.col-con { width: 120px; }
 thead th.col-date { width: 110px; }
 thead th.col-dept { width: 150px; }
-thead th.col-result { width: 260px; }
-thead th.col-short { width: 170px; }
-thead th.col-copy { width: 60px; text-align: center; }
+thead th.col-result { width: 215px; }
+thead th.col-short { width: 215px; }
 thead th.col-del { width: 60px; text-align: center; }
 
 /* ROWS */
@@ -729,8 +728,8 @@ tbody td:first-child {
 }
 .filter-reset:hover { background: rgba(255,127,127,0.08); }
 
-/* COPY / DELETE COLUMNS */
-.copy-td, .del-td {
+/* DELETE COLUMN */
+.del-td {
   text-align: center;
   vertical-align: middle;
   padding: 0 4px;
