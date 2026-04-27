@@ -331,10 +331,21 @@ function addMultipleRows() {
 }
 
 function deleteRow(id) {
-  if (!confirm('이 행을 삭제할까요?')) return;
+  if (!confirm('이 행을 삭제할까요?\n삭제된 항목은 휴지통에서 30일간 보관됩니다.')) return;
   const row = rows.find(r => r.id === id);
   if (!row || !row.firebaseId) return;
-  db.collection('utm_rows').doc(row.firebaseId).delete().catch(console.error);
+  _moveToTrash(row).then(() => {
+    db.collection('utm_rows').doc(row.firebaseId).delete().catch(console.error);
+  });
+}
+
+function _moveToTrash(row) {
+  return db.collection('utm_trash').add({
+    url: row.url, source: row.source, medium: row.medium,
+    campaign: row.campaign, term: row.term, content: row.content,
+    dept: row.dept, createdAt: row.createdAt,
+    deletedAt: Date.now(), _order: row._order || 0
+  });
 }
 
 function toggleRow(id, el) {
@@ -359,11 +370,14 @@ function selectAll() {
 function clearSelected() {
   const selected = rows.filter(r => r.selected);
   if (selected.length === 0) { showToast('선택된 행이 없습니다'); return; }
-  const batch = db.batch();
-  selected.forEach(row => {
-    if (row.firebaseId) batch.delete(db.collection('utm_rows').doc(row.firebaseId));
+  if (!confirm(`선택한 ${selected.length}개 행을 삭제할까요?\n삭제된 항목은 휴지통에서 30일간 보관됩니다.`)) return;
+  Promise.all(selected.map(row => _moveToTrash(row))).then(() => {
+    const batch = db.batch();
+    selected.forEach(row => {
+      if (row.firebaseId) batch.delete(db.collection('utm_rows').doc(row.firebaseId));
+    });
+    batch.commit().catch(console.error);
   });
-  batch.commit().catch(console.error);
   showToast(`${selected.length}개 행이 삭제되었습니다`);
 }
 
@@ -471,3 +485,93 @@ db.collection('utm_rows').onSnapshot(snapshot => {
 }, error => {
   console.error('Firestore 오류:', error);
 });
+
+// ── 휴지통 ──────────────────────────────────────────────────
+const TRASH_TTL = 30 * 24 * 60 * 60 * 1000;
+
+db.collection('utm_trash').onSnapshot(snapshot => {
+  const now = Date.now();
+  let activeCount = 0;
+  snapshot.docs.forEach(d => {
+    const deletedAt = d.data().deletedAt || 0;
+    if (now - deletedAt > TRASH_TTL) {
+      d.ref.delete().catch(console.error);
+    } else {
+      activeCount++;
+    }
+  });
+  const badge = document.getElementById('trash-count');
+  if (badge) {
+    badge.textContent = activeCount;
+    badge.style.display = activeCount > 0 ? 'inline' : 'none';
+  }
+}, error => { console.error('Trash 오류:', error); });
+
+function openTrash() {
+  document.getElementById('trash-overlay').style.display = 'block';
+  document.getElementById('trash-modal').classList.add('open');
+  loadTrash();
+}
+
+function closeTrash() {
+  document.getElementById('trash-overlay').style.display = 'none';
+  document.getElementById('trash-modal').classList.remove('open');
+}
+
+function loadTrash() {
+  const now = Date.now();
+  const listEl = document.getElementById('trash-list');
+
+  db.collection('utm_trash').get().then(snapshot => {
+    const valid = snapshot.docs
+      .filter(d => now - (d.data().deletedAt || 0) <= TRASH_TTL)
+      .sort((a, b) => (b.data().deletedAt || 0) - (a.data().deletedAt || 0));
+
+    if (valid.length === 0) {
+      listEl.innerHTML = '<div class="trash-empty">휴지통이 비어 있습니다.</div>';
+      return;
+    }
+
+    listEl.innerHTML = valid.map(d => {
+      const data = d.data();
+      const daysLeft = Math.ceil((TRASH_TTL - (now - data.deletedAt)) / (24 * 60 * 60 * 1000));
+      const utm = buildUTM(data);
+      const deletedDate = new Date(data.deletedAt).toLocaleDateString('ko-KR');
+      return `<div class="trash-item">
+        <div class="trash-item-info">
+          <div class="trash-item-url ${utm ? '' : 'no-url'}">${utm ? escHtml(utm) : '— 미완성 URL'}</div>
+          <div class="trash-item-meta">
+            <span>${deletedDate} 삭제</span>
+            ${data.dept ? `<span>${escHtml(data.dept)}</span>` : ''}
+            ${data.source ? `<span>${escHtml(data.source)}</span>` : ''}
+            ${data.campaign ? `<span>${escHtml(data.campaign)}</span>` : ''}
+          </div>
+        </div>
+        <span class="trash-days ${daysLeft <= 3 ? 'urgent' : ''}">${daysLeft}일 후 삭제</span>
+        <button class="trash-restore-btn" onclick="restoreTrashItem('${d.id}')">복원</button>
+        <button class="trash-permdel-btn" onclick="permanentDeleteTrashItem('${d.id}')">영구삭제</button>
+      </div>`;
+    }).join('');
+  }).catch(console.error);
+}
+
+function restoreTrashItem(trashId) {
+  db.collection('utm_trash').doc(trashId).get().then(d => {
+    if (!d.exists) return;
+    const { deletedAt, ...rowData } = d.data();
+    rowData._order = Date.now();
+    db.collection('utm_rows').add(rowData).then(() => {
+      d.ref.delete();
+      loadTrash();
+      showToast('복원되었습니다');
+    });
+  }).catch(console.error);
+}
+
+function permanentDeleteTrashItem(trashId) {
+  if (!confirm('영구 삭제하면 복원할 수 없습니다. 계속할까요?')) return;
+  db.collection('utm_trash').doc(trashId).delete().then(() => {
+    loadTrash();
+    showToast('영구 삭제되었습니다');
+  }).catch(console.error);
+}
