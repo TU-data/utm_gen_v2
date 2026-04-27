@@ -720,7 +720,7 @@ async function generateShortUrl(id) {
         'Authorization': `Bearer ${BITLY_TOKEN}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ long_url: utm })
+      body: JSON.stringify({ long_url: utm, domain: 'tu.tudentalclinic.com' })
     });
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
