@@ -199,7 +199,7 @@ function handleSidebarDeptChange(sel) {
 // ── 단축 URL 셀 HTML 헬퍼 ────────────────────────────────────
 function shortUrlCellHTML(row) {
   const utm = buildUTM(row);
-  if (!utm) return '<div class="short-cell-empty">—</div>';
+  if (!utm || !BITLY_TOKEN) return '<div class="short-cell-empty">—</div>';
   if (row.shortUrl && row.shortUrlFor === utm) {
     return `<div class="short-cell">
       <a class="short-url-text" href="${escHtml(row.shortUrl)}" target="_blank" rel="noopener">${escHtml(row.shortUrl)}</a>
@@ -703,6 +703,7 @@ function permanentDeleteTrashItem(trashId) {
 async function generateShortUrl(id) {
   const row = rows.find(r => r.id === id);
   if (!row || !row.firebaseId) return;
+  if (!BITLY_TOKEN) { showToast('Bitly 토큰이 설정되지 않았습니다'); return; }
   const utm = buildUTM(row);
   if (!utm) return;
   if (_shorteningQueue.has(row.firebaseId)) return;
