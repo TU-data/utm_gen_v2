@@ -204,6 +204,7 @@ function shortUrlCellHTML(row) {
     return `<div class="short-cell">
       <a class="short-url-text" href="${escHtml(row.shortUrl)}" target="_blank" rel="noopener">${escHtml(row.shortUrl)}</a>
       <button class="copy-btn" onclick="copyUTM(this,'${escAttr(row.shortUrl)}')">복사</button>
+      <button class="short-regen-btn" onclick="regenerateShortUrl(${row.id})" title="재생성">↻</button>
     </div>`;
   }
   if (_shorteningQueue.has(row.firebaseId)) {
@@ -754,6 +755,20 @@ async function generateShortUrl(id) {
   } finally {
     _shorteningQueue.delete(row.firebaseId);
   }
+}
+
+async function regenerateShortUrl(id) {
+  const row = rows.find(r => r.id === id);
+  if (!row || !row.firebaseId) return;
+  const oldShortUrl = row.shortUrl;
+  if (oldShortUrl) await _archiveBitlyLink(oldShortUrl);
+  row.shortUrl = null;
+  row.shortUrlFor = null;
+  await db.collection('utm_rows').doc(row.firebaseId).update({
+    shortUrl: firebase.firestore.FieldValue.delete(),
+    shortUrlFor: firebase.firestore.FieldValue.delete()
+  }).catch(console.error);
+  generateShortUrl(id);
 }
 
 async function _archiveBitlyLink(shortUrl) {

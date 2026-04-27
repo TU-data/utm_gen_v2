@@ -772,6 +772,19 @@ tbody td:first-child {
   transition: all 0.15s;
 }
 .short-gen-btn:hover { background: rgba(127,255,178,0.14); border-style: solid; }
+.short-regen-btn {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1;
+}
+.short-regen-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* BITLY BUTTON */
 .bitly-btn {
