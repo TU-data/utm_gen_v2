@@ -150,6 +150,10 @@ function handleMediumCellChange(id, sel) {
       if (resultCell) {
         resultCell.innerHTML = utmResultCellHTML(row);
       }
+      const shortTd = tr.querySelector('.short-td');
+      if (shortTd) {
+        shortTd.innerHTML = shortUrlCellHTML(row);
+      }
       if (!row.createdAt) {
         const dateBadge = tr.querySelector('.date-badge');
         if (dateBadge && row.createdAt) { dateBadge.textContent = row.createdAt; dateBadge.classList.add('set'); }
@@ -175,31 +179,32 @@ function handleSidebarDeptChange(sel) {
   }
 }
 
+// ── 단축 URL 셀 HTML 헬퍼 ────────────────────────────────────
+function shortUrlCellHTML(row) {
+  const utm = buildUTM(row);
+  if (!utm) return '<div class="short-cell-empty">—</div>';
+  if (!BITLY_TOKEN) return '<div class="short-cell-empty">—</div>';
+  if (row.shortUrl && row.shortUrlFor === utm) {
+    return `<div class="short-cell">
+      <span class="short-url-text">${escHtml(row.shortUrl)}</span>
+      <button class="copy-btn" onclick="copyUTM(this,'${escAttr(row.shortUrl)}')">복사</button>
+    </div>`;
+  }
+  return '<div class="utm-short-pending">생성 중…</div>';
+}
+
 // ── UTM 결과 셀 HTML 헬퍼 ────────────────────────────────────
 function utmResultCellHTML(row) {
   const utm = buildUTM(row);
   const ok = isComplete(row);
   const dotClass = ok ? 'dot-ok' : (row.url || row.source || row.medium || row.campaign ? 'dot-partial' : 'dot-empty');
 
-  let shortHtml = '';
-  if (utm && BITLY_TOKEN) {
-    if (row.shortUrl && row.shortUrlFor === utm) {
-      shortHtml = `<div class="utm-short-row">
-        <span class="short-icon">🔗</span>
-        <span class="short-url-text">${escHtml(row.shortUrl)}</span>
-        <button class="copy-btn" onclick="copyUTM(this,'${escAttr(row.shortUrl)}')">복사</button>
-      </div>`;
-    } else {
-      shortHtml = `<div class="utm-short-pending">단축 URL 생성 중...</div>`;
-    }
-  }
-
   return `<div class="utm-result-main">
       <div class="status-dot ${dotClass}"></div>
       <div class="utm-url ${utm ? '' : 'empty'}">${utm ? escHtml(utm) : '— 필수 항목을 입력하세요'}</div>
       ${utm ? `<button class="copy-btn" onclick="copyUTM(this,'${escAttr(utm)}')">복사</button>` : ''}
       <button class="delete-row-btn" onclick="deleteRow(${row.id})">삭제</button>
-    </div>${shortHtml}`;
+    </div>`;
 }
 
 // ── Render ───────────────────────────────────────────────────
@@ -258,6 +263,7 @@ function renderTable() {
       </td>
       <td class="dept-td">${deptCellHTML(row)}</td>
       <td><div class="utm-result">${utmResultCellHTML(row)}</div></td>
+      <td class="short-td">${shortUrlCellHTML(row)}</td>
     </tr>`;
   }).join('');
 
@@ -287,6 +293,10 @@ function updateCell(id, field, value) {
     const resultCell = tr.querySelector('.utm-result');
     if (resultCell) {
       resultCell.innerHTML = utmResultCellHTML(row);
+    }
+    const shortTd = tr.querySelector('.short-td');
+    if (shortTd) {
+      shortTd.innerHTML = shortUrlCellHTML(row);
     }
     if (!wasComplete && row.createdAt) {
       const dateBadge = tr.querySelector('.date-badge');

@@ -280,7 +280,8 @@ thead th.col-ter { width: 120px; }
 thead th.col-con { width: 120px; }
 thead th.col-date { width: 110px; }
 thead th.col-dept { width: 150px; }
-thead th.col-result { min-width: 300px; }
+thead th.col-result { min-width: 260px; }
+thead th.col-short { width: 170px; }
 
 /* ROWS */
 tbody tr {
@@ -727,6 +728,31 @@ tr:hover .delete-row-btn { opacity: 1; }
   white-space: nowrap;
 }
 .filter-reset:hover { background: rgba(255,127,127,0.08); }
+
+/* SHORT URL CELL */
+.short-td {
+  padding: 0 12px;
+  vertical-align: middle;
+}
+.short-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.short-cell .short-url-text {
+  font-size: 11px;
+  color: var(--accent);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.short-cell-empty {
+  font-size: 12px;
+  color: var(--muted);
+}
 
 /* BITLY BUTTON */
 .bitly-btn {
