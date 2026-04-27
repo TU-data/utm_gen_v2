@@ -272,7 +272,7 @@ thead th:first-child {
   left: 0;
   z-index: 20;
 }
-thead th.col-url { width: 200px; }
+thead th.col-url { width: 320px; }
 thead th.col-src { width: 120px; }
 thead th.col-med { width: 120px; }
 thead th.col-cam { width: 150px; }
