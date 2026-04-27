@@ -1,0 +1,47 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inject Bitly token
+        env:
+          BITLY_TOKEN: ${{ secrets.BITLY_TOKEN }}
+        run: |
+          python3 -c "
+          import os
+          token = os.environ.get('BITLY_TOKEN', '')
+          with open('script.js', 'r') as f:
+              content = f.read()
+          content = content.replace('__BITLY_TOKEN__', token)
+          with open('script.js', 'w') as f:
+              f.write(content)
+          print('Token injected:', bool(token))
+          "
+
+      - uses: actions/configure-pages@v4
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - uses: actions/deploy-pages@v4
+        id: deployment

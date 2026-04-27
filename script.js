@@ -15,7 +15,8 @@ let rows = [];
 let nextId = 1;
 let _pendingUpdates = {};
 let filters = { url: '', source: '', medium: '' };
-let BITLY_TOKEN = localStorage.getItem('bitly_token') || '';
+const _BITLY_INJECTED = '__BITLY_TOKEN__';
+let BITLY_TOKEN = _BITLY_INJECTED.startsWith('__') ? '' : _BITLY_INJECTED;
 const _shorteningQueue = new Set();
 
 const DEPT_OPTIONS = ['바이럴팀', '데이터팀', '컨텐츠팀'];
@@ -687,24 +688,6 @@ async function shortenUrl(row) {
   }
 }
 
-function setupBitly() {
-  const token = prompt('Bitly Access Token을 입력하세요\n(https://app.bitly.com → Settings → API):', BITLY_TOKEN);
-  if (token === null) return;
-  BITLY_TOKEN = token.trim();
-  localStorage.setItem('bitly_token', BITLY_TOKEN);
-  updateBitlyStatus();
-  if (BITLY_TOKEN) {
-    rows.forEach(row => {
-      const utm = buildUTM(row);
-      if (utm && row.firebaseId && (!row.shortUrl || row.shortUrlFor !== utm)) {
-        shortenUrl(row);
-      }
-    });
-    showToast('Bitly 토큰이 저장되었습니다');
-  } else {
-    showToast('Bitly 토큰이 제거되었습니다');
-  }
-}
 
 function updateBitlyStatus() {
   const btn = document.getElementById('bitly-btn');
