@@ -14,6 +14,7 @@ const db = firebase.firestore();
 let rows = [];
 let nextId = 1;
 let _pendingUpdates = {};
+let filters = { url: '', source: '', medium: '' };
 
 const DEPT_OPTIONS = ['바이럴팀', '데이터팀', '컨텐츠팀'];
 
@@ -181,15 +182,22 @@ function renderTable() {
   const tbody = document.getElementById('utm-tbody');
   const empty = document.getElementById('empty-state');
 
-  if (rows.length === 0) {
+  const filteredRows = rows.filter(r => {
+    if (filters.url && r.url !== filters.url) return false;
+    if (filters.source && r.source !== filters.source) return false;
+    if (filters.medium && r.medium !== filters.medium) return false;
+    return true;
+  });
+
+  if (filteredRows.length === 0) {
     tbody.innerHTML = '';
     empty.style.display = 'block';
-    updateStats();
+    updateStats(filteredRows);
     return;
   }
   empty.style.display = 'none';
 
-  tbody.innerHTML = rows.map((row) => {
+  tbody.innerHTML = filteredRows.map((row) => {
     const utm = buildUTM(row);
     const ok = isComplete(row);
     const dotClass = ok ? 'dot-ok' : (row.url || row.source || row.medium || row.campaign ? 'dot-partial' : 'dot-empty');
@@ -235,7 +243,7 @@ function renderTable() {
     </tr>`;
   }).join('');
 
-  updateStats();
+  updateStats(filteredRows);
 }
 
 function escHtml(str) {
@@ -435,15 +443,63 @@ function applyPreset(source, medium) {
   event.target.classList.add('active');
 }
 
-function updateStats() {
-  const total = rows.length;
-  const complete = rows.filter(r => isComplete(r)).length;
+function updateStats(displayRows) {
+  const target = displayRows || rows;
+  const total = target.length;
+  const complete = target.filter(r => isComplete(r)).length;
   const incomplete = total - complete;
   document.getElementById('row-count').textContent = total;
   document.getElementById('complete-count').textContent = complete;
   document.getElementById('stat-total').textContent = total;
   document.getElementById('stat-complete').textContent = complete;
   document.getElementById('stat-incomplete').textContent = incomplete;
+}
+
+function updateFilterOptions() {
+  const urls = [...new Set(rows.map(r => r.url).filter(Boolean))].sort();
+  const sources = [...new Set(rows.map(r => r.source).filter(Boolean))].sort();
+  const mediums = [...new Set(rows.map(r => r.medium).filter(Boolean))].sort();
+
+  _setFilterOpts('filter-url', urls, filters.url, 'Base URL 전체');
+  _setFilterOpts('filter-source', sources, filters.source, 'Source 전체');
+  _setFilterOpts('filter-medium', mediums, filters.medium, 'Medium 전체');
+
+  const hasFilter = filters.url || filters.source || filters.medium;
+  const resetBtn = document.getElementById('filter-reset');
+  if (resetBtn) resetBtn.style.display = hasFilter ? 'block' : 'none';
+}
+
+function _setFilterOpts(id, values, current, placeholder) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  if (current && !values.includes(current)) {
+    filters[id.replace('filter-', '')] = '';
+    current = '';
+  }
+  sel.innerHTML = `<option value="">${placeholder}</option>` +
+    values.map(v => `<option value="${escHtml(v)}" ${current === v ? 'selected' : ''}>${escHtml(v)}</option>`).join('');
+  sel.classList.toggle('active', !!current);
+}
+
+function applyFilter(field, value) {
+  filters[field] = value;
+  const sel = document.getElementById(`filter-${field}`);
+  if (sel) sel.classList.toggle('active', !!value);
+  const hasFilter = filters.url || filters.source || filters.medium;
+  const resetBtn = document.getElementById('filter-reset');
+  if (resetBtn) resetBtn.style.display = hasFilter ? 'block' : 'none';
+  renderTable();
+}
+
+function resetFilters() {
+  filters = { url: '', source: '', medium: '' };
+  ['filter-url', 'filter-source', 'filter-medium'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel) { sel.value = ''; sel.classList.remove('active'); }
+  });
+  const resetBtn = document.getElementById('filter-reset');
+  if (resetBtn) resetBtn.style.display = 'none';
+  renderTable();
 }
 
 function showToast(msg) {
@@ -481,6 +537,7 @@ db.collection('utm_rows').onSnapshot(snapshot => {
     };
   }).sort((a, b) => a._order - b._order);
 
+  updateFilterOptions();
   if (!isEditing) renderTable();
 }, error => {
   console.error('Firestore 오류:', error);

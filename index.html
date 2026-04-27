@@ -135,6 +135,17 @@
     <div class="sheet-toolbar">
       <button class="btn btn-ghost" style="font-size:11px;" onclick="addMultipleRows()">+ 빈 행 추가</button>
       <button class="btn btn-ghost" style="font-size:11px;" onclick="selectAll()">전체 선택</button>
+      <div class="filter-divider"></div>
+      <select class="filter-select" id="filter-url" onchange="applyFilter('url', this.value)">
+        <option value="">Base URL 전체</option>
+      </select>
+      <select class="filter-select" id="filter-source" onchange="applyFilter('source', this.value)">
+        <option value="">Source 전체</option>
+      </select>
+      <select class="filter-select" id="filter-medium" onchange="applyFilter('medium', this.value)">
+        <option value="">Medium 전체</option>
+      </select>
+      <button class="filter-reset" id="filter-reset" onclick="resetFilters()" style="display:none">✕ 초기화</button>
       <div class="sheet-info">
         <strong id="row-count">0</strong>개 행 &nbsp;|&nbsp;
         <strong id="complete-count">0</strong>개 완성
