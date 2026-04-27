@@ -722,7 +722,11 @@ async function generateShortUrl(id) {
       body: JSON.stringify({ long_url: utm })
     });
     if (!res.ok) {
-      showToast(res.status === 401 ? 'Bitly 토큰이 유효하지 않습니다' : `Bitly 오류: ${res.status}`);
+      const errData = await res.json().catch(() => ({}));
+      const errMsg = errData.message || errData.description || '';
+      if (res.status === 401) showToast('Bitly 토큰이 유효하지 않습니다');
+      else if (res.status === 403) showToast(`Bitly 권한 오류 — 토큰을 재발급해 주세요 (${errMsg})`);
+      else showToast(`Bitly 오류: ${res.status} ${errMsg}`);
       const tr2 = document.querySelector(`tr[data-id="${id}"]`);
       const std2 = tr2 && tr2.querySelector('.short-td');
       if (std2) std2.innerHTML = shortUrlCellHTML(row);
