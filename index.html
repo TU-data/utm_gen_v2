@@ -697,9 +697,25 @@
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
+// ── Firebase ────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDS_l3bAuXMgXVOC5NCEeBfJnLey5PluWI",
+  authDomain: "utm-gen-efc65.firebaseapp.com",
+  projectId: "utm-gen-efc65",
+  storageBucket: "utm-gen-efc65.firebasestorage.app",
+  messagingSenderId: "281400998954",
+  appId: "1:281400998954:web:26c0d9fa1d93d45a01d753"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ── Local state ─────────────────────────────────────────────
 let rows = [];
 let nextId = 1;
+let _pendingUpdates = {};
 
 const DEPT_OPTIONS = ['바이럴팀', '데이터팀', '컨텐츠팀'];
 
@@ -792,6 +808,9 @@ function handleDeptChange(id, sel) {
     if (tr) { const inp = tr.querySelector('.dept-custom-input'); if (inp) inp.focus(); }
   } else {
     row.dept = sel.value;
+    if (row.firebaseId) {
+      db.collection('utm_rows').doc(row.firebaseId).update({ dept: row.dept }).catch(console.error);
+    }
   }
 }
 
@@ -841,6 +860,11 @@ function handleMediumCellChange(id, sel) {
         const dateBadge = tr.querySelector('.date-badge');
         if (dateBadge && row.createdAt) { dateBadge.textContent = row.createdAt; dateBadge.classList.add('set'); }
       }
+    }
+    if (row.firebaseId) {
+      const update = { medium: row.medium };
+      if (row.createdAt) update.createdAt = row.createdAt;
+      db.collection('utm_rows').doc(row.firebaseId).update(update).catch(console.error);
     }
     updateStats();
   }
@@ -958,6 +982,16 @@ function updateCell(id, field, value) {
     }
   }
   updateStats();
+
+  // Firestore 업데이트 (디바운스 800ms)
+  if (row.firebaseId) {
+    clearTimeout(_pendingUpdates[id]);
+    _pendingUpdates[id] = setTimeout(() => {
+      const update = { [field]: value };
+      if (row.createdAt) update.createdAt = row.createdAt;
+      db.collection('utm_rows').doc(row.firebaseId).update(update).catch(console.error);
+    }, 800);
+  }
 }
 
 function addRow(data = {}) {
@@ -979,12 +1013,11 @@ function addRow(data = {}) {
   const term = data.term || document.getElementById('new-term').value.trim();
   const content = data.content || document.getElementById('new-content').value.trim();
 
-  const newRow = { id: generateId(), url, source, medium, campaign, term, content,
-    dept: data.dept || dept, createdAt: data.createdAt || null, selected: false };
-  maybeStampDate(newRow);
+  const newRowData = { url, source, medium, campaign, term, content,
+    dept: data.dept || dept, createdAt: data.createdAt || null, _order: Date.now() };
+  maybeStampDate(newRowData);
 
-  rows.push(newRow);
-  renderTable();
+  db.collection('utm_rows').add(newRowData).catch(console.error);
 
   // Clear form
   ['new-url','new-campaign','new-term','new-content'].forEach(id => {
@@ -1001,14 +1034,14 @@ function addRow(data = {}) {
 }
 
 function addMultipleRows() {
-  rows.push({ id: generateId(), url:'', source:'', medium:'', campaign:'', term:'', content:'',
-    dept:'', createdAt: null, selected: false });
-  renderTable();
+  db.collection('utm_rows').add({ url:'', source:'', medium:'', campaign:'', term:'', content:'',
+    dept:'', createdAt: null, _order: Date.now() }).catch(console.error);
 }
 
 function deleteRow(id) {
-  rows = rows.filter(r => r.id !== id);
-  renderTable();
+  const row = rows.find(r => r.id === id);
+  if (!row || !row.firebaseId) return;
+  db.collection('utm_rows').doc(row.firebaseId).delete().catch(console.error);
 }
 
 function toggleRow(id, el) {
@@ -1031,11 +1064,14 @@ function selectAll() {
 }
 
 function clearSelected() {
-  const count = rows.filter(r => r.selected).length;
-  if (count === 0) { showToast('선택된 행이 없습니다'); return; }
-  rows = rows.filter(r => !r.selected);
-  renderTable();
-  showToast(`${count}개 행이 삭제되었습니다`);
+  const selected = rows.filter(r => r.selected);
+  if (selected.length === 0) { showToast('선택된 행이 없습니다'); return; }
+  const batch = db.batch();
+  selected.forEach(row => {
+    if (row.firebaseId) batch.delete(db.collection('utm_rows').doc(row.firebaseId));
+  });
+  batch.commit().catch(console.error);
+  showToast(`${selected.length}개 행이 삭제되었습니다`);
 }
 
 function copyUTM(btn, url) {
@@ -1116,13 +1152,34 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.closest('.sidebar')) addRow();
 });
 
-// Init with sample rows
-rows = [
-  { id: generateId(), url:'https://example.com/landing', source:'google', medium:'cpc', campaign:'spring_sale_2025', term:'running_shoes', content:'headline_a', dept:'바이럴팀', createdAt:'2025.04.20', selected:false },
-  { id: generateId(), url:'https://example.com/landing', source:'naver', medium:'cpc', campaign:'spring_sale_2025', term:'러닝화', content:'', dept:'데이터팀', createdAt:'2025.04.21', selected:false },
-  { id: generateId(), url:'https://example.com/promo', source:'instagram', medium:'social', campaign:'brand_awareness', term:'', content:'story_swipe', dept:'컨텐츠팀', createdAt:'2025.04.22', selected:false },
-];
-renderTable();
+// ── Firestore 실시간 동기화 ──────────────────────────────────
+db.collection('utm_rows').onSnapshot(snapshot => {
+  const active = document.activeElement;
+  const isEditing = active && active.closest && active.closest('#utm-tbody');
+
+  rows = snapshot.docs.map(d => {
+    const data = d.data();
+    const existing = rows.find(r => r.firebaseId === d.id);
+    return {
+      id: existing ? existing.id : generateId(),
+      firebaseId: d.id,
+      url: data.url || '',
+      source: data.source || '',
+      medium: data.medium || '',
+      campaign: data.campaign || '',
+      term: data.term || '',
+      content: data.content || '',
+      dept: data.dept || '',
+      createdAt: data.createdAt || null,
+      selected: existing ? existing.selected : false,
+      _order: data._order || 0
+    };
+  }).sort((a, b) => a._order - b._order);
+
+  if (!isEditing) renderTable();
+}, error => {
+  console.error('Firestore 오류:', error);
+});
 </script>
 </body>
 </html>
