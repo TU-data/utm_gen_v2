@@ -280,7 +280,7 @@ thead th.col-ter { width: 120px; }
 thead th.col-con { width: 120px; }
 thead th.col-date { width: 110px; }
 thead th.col-dept { width: 150px; }
-thead th.col-result { min-width: 260px; }
+thead th.col-result { width: 260px; }
 thead th.col-short { width: 170px; }
 thead th.col-copy { width: 60px; text-align: center; }
 thead th.col-del { width: 60px; text-align: center; }

@@ -199,7 +199,7 @@ function handleSidebarDeptChange(sel) {
 // ── 단축 URL 셀 HTML 헬퍼 ────────────────────────────────────
 function shortUrlCellHTML(row) {
   const utm = buildUTM(row);
-  if (!utm || !BITLY_TOKEN) return '<div class="short-cell-empty">—</div>';
+  if (!utm) return '<div class="short-cell-empty">—</div>';
   if (row.shortUrl && row.shortUrlFor === utm) {
     return `<div class="short-cell">
       <a class="short-url-text" href="${escHtml(row.shortUrl)}" target="_blank" rel="noopener">${escHtml(row.shortUrl)}</a>
