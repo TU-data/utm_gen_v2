@@ -125,7 +125,8 @@ function handleSidebarMediumChange(sel) {
   }
 }
 
-const MEDIUM_OPTIONS_LIST = ['cpc','display','social','paid_social','sms','email','push'];
+const MEDIUM_OPTIONS_LIST = ['cpc','display','paid_social','social','blog','message','sms','email','push'];
+const SOURCE_OPTIONS_LIST = ['naver','google','meta','x','tiktok','kakao','line','wechat','whatsapp','sms','ameblo'];
 
 function handleMediumCellChange(id, sel) {
   const row = rows.find(r => r.id === id);
@@ -255,17 +256,17 @@ function renderTable() {
       <td><div class="dept-cell">
         <select class="dept-select" onchange="updateCell(${row.id},'source',this.value)">
           <option value="">— 선택 —</option>
-          ${['naver','google','kakao','sms','meta','x'].map(s => `<option value="${s}" ${(row.source||'') === s?'selected':''}>${s}</option>`).join('')}
+          ${SOURCE_OPTIONS_LIST.map(s => `<option value="${s}" ${(row.source||'') === s?'selected':''}>${s}</option>`).join('')}
         </select>
       </div></td>
       <td><div class="dept-cell">
         <select class="dept-select" onchange="handleMediumCellChange(${row.id},this)">
           <option value="">— 선택 —</option>
-          ${['cpc','display','social','paid_social','sms','email','push'].map(m => `<option value="${m}" ${(row.medium||'')=== m?'selected':''}>${m}</option>`).join('')}
-          <option value="기타" ${row.medium && !['cpc','display','social','paid_social','sms','email','push'].includes(row.medium)?'selected':''}>기타 (직접입력)</option>
+          ${MEDIUM_OPTIONS_LIST.map(m => `<option value="${m}" ${(row.medium||'')=== m?'selected':''}>${m}</option>`).join('')}
+          <option value="기타" ${row.medium && !MEDIUM_OPTIONS_LIST.includes(row.medium)?'selected':''}>기타 (직접입력)</option>
         </select>
       </div>
-      ${row.medium && !['cpc','display','social','paid_social','sms','email','push'].includes(row.medium) ? `<div style="padding:0 8px;"><input class="dept-custom-input" style="border-left-color:var(--accent)" value="${escHtml(row.medium)}" placeholder="직접 입력..." oninput="updateCell(${row.id},'medium',this.value)" /></div>` : ''}
+      ${row.medium && !MEDIUM_OPTIONS_LIST.includes(row.medium) ? `<div style="padding:0 8px;"><input class="dept-custom-input" style="border-left-color:var(--accent)" value="${escHtml(row.medium)}" placeholder="직접 입력..." oninput="updateCell(${row.id},'medium',this.value)" /></div>` : ''}
       </td>
       <td><input class="cell-input" value="${escHtml(row.campaign||'')}" placeholder="campaign" oninput="updateCell(${row.id},'campaign',this.value)" /></td>
       <td><input class="cell-input" value="${escHtml(row.term||'')}" placeholder="keyword" oninput="updateCell(${row.id},'term',this.value)" /></td>
