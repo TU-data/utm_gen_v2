@@ -19,7 +19,7 @@ const _BITLY_INJECTED = '__BITLY_TOKEN__';
 let BITLY_TOKEN = _BITLY_INJECTED.startsWith('__') ? '' : _BITLY_INJECTED;
 const _shorteningQueue = new Set();
 
-const DEPT_OPTIONS = ['바이럴팀', '데이터팀', '컨텐츠팀'];
+const DEPT_OPTIONS = ['바이럴팀', '데이터팀', '컨텐츠팀', '글로벌프로젝트팀'];
 
 function generateId() { return nextId++; }
 
