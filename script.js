@@ -114,6 +114,17 @@ function handleDeptChange(id, sel) {
   }
 }
 
+function handleSidebarUrlChange(sel) {
+  const customInput = document.getElementById('new-url-custom');
+  if (sel.value === '기타') {
+    customInput.style.display = 'block';
+    customInput.focus();
+  } else {
+    customInput.style.display = 'none';
+    customInput.value = '';
+  }
+}
+
 function handleSidebarMediumChange(sel) {
   const customInput = document.getElementById('new-medium-custom');
   if (sel.value === '기타') {
@@ -127,6 +138,56 @@ function handleSidebarMediumChange(sel) {
 
 const MEDIUM_OPTIONS_LIST = ['cpc','display','paid_social','social','blog','message','sms','email','push'];
 const SOURCE_OPTIONS_LIST = ['naver','google','meta','x','tiktok','kakao','line','wechat','whatsapp','sms','ameblo'];
+const URL_OPTIONS_LIST = [
+  'https://tudentalclinic.com/ko',
+  'https://tudentalclinic.com/zh-hant',
+  'https://tudentalclinic.com/ja',
+  'https://tudentalclinic.com/zh-hans',
+  'https://tudentalclinic.com/en'
+];
+
+function handleUrlCellChange(id, sel) {
+  const row = rows.find(r => r.id === id);
+  if (!row) return;
+  if (sel.value === '기타') {
+    row.url = '';
+    renderTable();
+    const tr = document.querySelector(`tr[data-id="${id}"]`);
+    if (tr) { const inp = tr.querySelector('.url-custom-input'); if (inp) inp.focus(); }
+  } else {
+    const prevUtm = buildUTM(row);
+    const prevShortUrl = row.shortUrl;
+    row.url = sel.value;
+    const newUtm = buildUTM(row);
+    if (prevUtm !== newUtm && prevShortUrl) {
+      _archiveBitlyLink(prevShortUrl);
+      row.shortUrl = null;
+      row.shortUrlFor = null;
+    }
+    maybeStampDate(row);
+    const tr = document.querySelector(`tr[data-id="${id}"]`);
+    if (tr) {
+      const resultCell = tr.querySelector('.utm-result');
+      if (resultCell) resultCell.innerHTML = utmResultCellHTML(row);
+      const shortTd = tr.querySelector('.short-td');
+      if (shortTd) shortTd.innerHTML = shortUrlCellHTML(row);
+      if (row.createdAt) {
+        const dateBadge = tr.querySelector('.date-badge');
+        if (dateBadge) { dateBadge.textContent = row.createdAt; dateBadge.classList.add('set'); }
+      }
+    }
+    if (row.firebaseId) {
+      const update = { url: row.url };
+      if (row.createdAt) update.createdAt = row.createdAt;
+      if (prevUtm !== newUtm && prevShortUrl) {
+        update.shortUrl = firebase.firestore.FieldValue.delete();
+        update.shortUrlFor = firebase.firestore.FieldValue.delete();
+      }
+      db.collection('utm_rows').doc(row.firebaseId).update(update).catch(console.error);
+    }
+    updateStats();
+  }
+}
 
 function handleMediumCellChange(id, sel) {
   const row = rows.find(r => r.id === id);
@@ -252,7 +313,15 @@ function renderTable() {
         <input type="checkbox" class="row-check" ${row.selected ? 'checked' : ''}
           onchange="toggleRow(${row.id}, this)" />
       </td>
-      <td><input class="cell-input" value="${escHtml(row.url||'')}" placeholder="https://..." oninput="updateCell(${row.id},'url',this.value)" /></td>
+      <td><div class="dept-cell">
+        <select class="dept-select" onchange="handleUrlCellChange(${row.id},this)">
+          <option value="">— 선택 —</option>
+          ${URL_OPTIONS_LIST.map(u => `<option value="${u}" ${(row.url||'') === u?'selected':''}>${u.replace('https://','')}</option>`).join('')}
+          <option value="기타" ${row.url && !URL_OPTIONS_LIST.includes(row.url)?'selected':''}>기타 (직접입력)</option>
+        </select>
+      </div>
+      ${row.url && !URL_OPTIONS_LIST.includes(row.url) ? `<div style="padding:0 8px;"><input class="dept-custom-input url-custom-input" value="${escHtml(row.url)}" placeholder="https://..." oninput="updateCell(${row.id},'url',this.value)" /></div>` : ''}
+      </td>
       <td><div class="dept-cell">
         <select class="dept-select" onchange="updateCell(${row.id},'source',this.value)">
           <option value="">— 선택 —</option>
@@ -359,7 +428,9 @@ function addRow(data = {}) {
     dept = deptSel.value;
   }
 
-  const url = data.url || document.getElementById('new-url').value.trim();
+  const urlSel = document.getElementById('new-url');
+  const urlCustom = document.getElementById('new-url-custom');
+  const url = data.url || (urlSel.value === '기타' ? urlCustom.value.trim() : urlSel.value);
   const source = data.source || document.getElementById('new-source').value.trim();
   const medSelEl = document.getElementById('new-medium');
   const medCustomEl = document.getElementById('new-medium-custom');
@@ -374,9 +445,12 @@ function addRow(data = {}) {
 
   db.collection('utm_rows').add(newRowData).catch(console.error);
 
-  ['new-url','new-campaign','new-term','new-content'].forEach(id => {
+  ['new-campaign','new-term','new-content'].forEach(id => {
     document.getElementById(id).value = '';
   });
+  urlSel.value = '';
+  urlCustom.value = '';
+  urlCustom.style.display = 'none';
   document.getElementById('new-source').value = '';
   document.getElementById('new-medium').value = '';
   document.getElementById('new-medium-custom').value = '';

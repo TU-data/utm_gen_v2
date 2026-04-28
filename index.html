@@ -31,10 +31,20 @@
       <div class="sidebar-title">행 추가</div>
 
       <div class="form-group">
-        <div class="form-label">
-          Base URL <span class="required">*</span>
+        <div class="form-label">Base URL <span class="required">*</span></div>
+        <div class="sidebar-dept-wrap">
+          <select class="form-select" id="new-url" onchange="handleSidebarUrlChange(this)">
+            <option value="">— 선택하세요 —</option>
+            <option value="https://tudentalclinic.com/ko">tudentalclinic.com/ko</option>
+            <option value="https://tudentalclinic.com/zh-hant">tudentalclinic.com/zh-hant</option>
+            <option value="https://tudentalclinic.com/ja">tudentalclinic.com/ja</option>
+            <option value="https://tudentalclinic.com/zh-hans">tudentalclinic.com/zh-hans</option>
+            <option value="https://tudentalclinic.com/en">tudentalclinic.com/en</option>
+            <option value="기타">기타 (직접입력)</option>
+          </select>
+          <input type="text" class="form-input" id="new-url-custom" placeholder="https://..."
+            style="display:none;" />
         </div>
-        <input type="text" class="form-input" id="new-url" placeholder="https://example.com/page" />
       </div>
 
       <div class="form-group">
