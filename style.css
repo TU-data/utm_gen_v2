@@ -797,3 +797,71 @@ tbody td:first-child {
   color: var(--accent);
 }
 .bitly-btn.bitly-connected:hover { background: rgba(127,255,178,0.08); }
+
+/* LOGIN */
+#login-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 40px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 360px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+}
+.login-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.login-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+.login-google-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 18px;
+  background: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a1a;
+  cursor: pointer;
+  justify-content: center;
+  transition: opacity 0.15s;
+  margin-top: 4px;
+}
+.login-google-btn:hover { opacity: 0.9; }
+.login-domain-hint {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+.login-error {
+  font-size: 11px;
+  color: var(--accent2);
+  text-align: center;
+  min-height: 16px;
+}
+.user-email-text {
+  font-size: 11px;
+  color: var(--muted);
+}

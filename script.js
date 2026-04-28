@@ -9,6 +9,53 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
+
+// ── Auth ─────────────────────────────────────────────────────
+const ALLOWED_DOMAINS = ['tugether.ai', 'tudentalclinic.com'];
+let _unsubRows = null;
+let _unsubTrash = null;
+
+function isAllowedEmail(email) {
+  return email && ALLOWED_DOMAINS.some(d => email.endsWith('@' + d));
+}
+
+async function signInWithGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  const errEl = document.getElementById('login-error');
+  if (errEl) errEl.textContent = '';
+  try {
+    await auth.signInWithPopup(provider);
+  } catch (e) {
+    if (errEl) errEl.textContent = '로그인 중 오류가 발생했습니다.';
+    console.error(e);
+  }
+}
+
+function signOutUser() {
+  auth.signOut();
+}
+
+auth.onAuthStateChanged(user => {
+  const overlay = document.getElementById('login-overlay');
+  const errEl = document.getElementById('login-error');
+  if (user && isAllowedEmail(user.email)) {
+    if (overlay) overlay.style.display = 'none';
+    const emailEl = document.getElementById('user-email');
+    if (emailEl) emailEl.textContent = user.email;
+    if (!_unsubRows) initFirestoreListeners();
+  } else {
+    if (overlay) overlay.style.display = 'flex';
+    if (user) {
+      auth.signOut();
+      if (errEl) errEl.textContent = `허용되지 않은 계정입니다 (${user.email})`;
+    }
+    if (_unsubRows) { _unsubRows(); _unsubRows = null; }
+    if (_unsubTrash) { _unsubTrash(); _unsubTrash = null; }
+    rows = [];
+  }
+});
 
 // ── Local state ─────────────────────────────────────────────
 let rows = [];
@@ -643,7 +690,8 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Firestore 실시간 동기화 ──────────────────────────────────
-db.collection('utm_rows').onSnapshot(snapshot => {
+function initFirestoreListeners() {
+_unsubRows = db.collection('utm_rows').onSnapshot(snapshot => {
   const active = document.activeElement;
   const isEditing = active && active.closest && active.closest('#utm-tbody');
 
@@ -677,7 +725,7 @@ db.collection('utm_rows').onSnapshot(snapshot => {
 // ── 휴지통 ──────────────────────────────────────────────────
 const TRASH_TTL = 30 * 24 * 60 * 60 * 1000;
 
-db.collection('utm_trash').onSnapshot(snapshot => {
+_unsubTrash = db.collection('utm_trash').onSnapshot(snapshot => {
   const now = Date.now();
   let activeCount = 0;
   snapshot.docs.forEach(d => {
@@ -694,6 +742,7 @@ db.collection('utm_trash').onSnapshot(snapshot => {
     badge.style.display = activeCount > 0 ? 'inline' : 'none';
   }
 }, error => { console.error('Trash 오류:', error); });
+} // end initFirestoreListeners
 
 function openTrash() {
   document.getElementById('trash-overlay').style.display = 'block';
