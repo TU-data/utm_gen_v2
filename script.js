@@ -467,6 +467,8 @@ function deleteRow(id) {
   if (!confirm('이 행을 삭제할까요?\n삭제된 항목은 휴지통에서 30일간 보관됩니다.')) return;
   const row = rows.find(r => r.id === id);
   if (!row || !row.firebaseId) return;
+  rows = rows.filter(r => r.id !== id);
+  renderTable();
   _moveToTrash(row).then(() => {
     db.collection('utm_rows').doc(row.firebaseId).delete().catch(console.error);
   });
@@ -504,6 +506,8 @@ function clearSelected() {
   const selected = rows.filter(r => r.selected);
   if (selected.length === 0) { showToast('선택된 행이 없습니다'); return; }
   if (!confirm(`선택한 ${selected.length}개 행을 삭제할까요?\n삭제된 항목은 휴지통에서 30일간 보관됩니다.`)) return;
+  rows = rows.filter(r => !r.selected);
+  renderTable();
   Promise.all(selected.map(row => _moveToTrash(row))).then(() => {
     const batch = db.batch();
     selected.forEach(row => {
