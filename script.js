@@ -160,7 +160,6 @@ function handleUrlCellChange(id, sel) {
     row.url = sel.value;
     const newUtm = buildUTM(row);
     if (prevUtm !== newUtm && prevShortUrl) {
-      _archiveBitlyLink(prevShortUrl);
       row.shortUrl = null;
       row.shortUrlFor = null;
     }
@@ -206,7 +205,6 @@ function handleMediumCellChange(id, sel) {
     row.medium = sel.value;
     const newUtm2 = buildUTM(row);
     if (prevUtm2 !== newUtm2 && prevShortUrl2) {
-      _archiveBitlyLink(prevShortUrl2);
       row.shortUrl = null;
       row.shortUrlFor = null;
     }
@@ -372,7 +370,6 @@ function updateCell(id, field, value) {
   const newUtm = buildUTM(row);
   const clearShortUrl = prevUtm !== newUtm && !!prevShortUrl;
   if (clearShortUrl) {
-    _archiveBitlyLink(prevShortUrl);
     row.shortUrl = null;
     row.shortUrlFor = null;
   }
@@ -470,7 +467,6 @@ function deleteRow(id) {
   if (!confirm('이 행을 삭제할까요?\n삭제된 항목은 휴지통에서 30일간 보관됩니다.')) return;
   const row = rows.find(r => r.id === id);
   if (!row || !row.firebaseId) return;
-  if (row.shortUrl) _archiveBitlyLink(row.shortUrl);
   _moveToTrash(row).then(() => {
     db.collection('utm_rows').doc(row.firebaseId).delete().catch(console.error);
   });
@@ -508,7 +504,6 @@ function clearSelected() {
   const selected = rows.filter(r => r.selected);
   if (selected.length === 0) { showToast('선택된 행이 없습니다'); return; }
   if (!confirm(`선택한 ${selected.length}개 행을 삭제할까요?\n삭제된 항목은 휴지통에서 30일간 보관됩니다.`)) return;
-  selected.forEach(row => { if (row.shortUrl) _archiveBitlyLink(row.shortUrl); });
   Promise.all(selected.map(row => _moveToTrash(row))).then(() => {
     const batch = db.batch();
     selected.forEach(row => {
@@ -825,8 +820,6 @@ async function generateShortUrl(id) {
 async function regenerateShortUrl(id) {
   const row = rows.find(r => r.id === id);
   if (!row || !row.firebaseId) return;
-  const oldShortUrl = row.shortUrl;
-  if (oldShortUrl) await _archiveBitlyLink(oldShortUrl);
   row.shortUrl = null;
   row.shortUrlFor = null;
   await db.collection('utm_rows').doc(row.firebaseId).update({
@@ -836,15 +829,3 @@ async function regenerateShortUrl(id) {
   generateShortUrl(id);
 }
 
-async function _archiveBitlyLink(shortUrl) {
-  if (!shortUrl || !BITLY_TOKEN) return;
-  const bitlinkId = shortUrl.replace(/^https?:\/\//, '');
-  try {
-    await fetch(`https://api-ssl.bitly.com/v4/bitlinks/${bitlinkId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${BITLY_TOKEN}` }
-    });
-  } catch (e) {
-    console.error('Bitly 삭제 오류:', e);
-  }
-}
