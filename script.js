@@ -184,7 +184,7 @@ function handleSidebarMediumChange(sel) {
 }
 
 const MEDIUM_OPTIONS_LIST = ['cpc','display','paid_social','social','blog','message','sms','email','push'];
-const SOURCE_OPTIONS_LIST = ['naver','google','meta','x','tiktok','kakao','line','wechat','whatsapp','sms','ameblo'];
+const SOURCE_OPTIONS_LIST = ['naver','google','meta','x','tiktok','kakao','line','wechat','whatsapp','sms','ameblo','linktree','littly'];
 const URL_OPTIONS_LIST = [
   'https://tudentalclinic.com/ko',
   'https://tudentalclinic.com/zh-hant',
